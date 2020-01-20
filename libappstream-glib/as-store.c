@@ -1609,6 +1609,35 @@ as_store_fixup_id_prefix (AsApp *app, const gchar *id_prefix)
 	as_app_set_id (app, id);
 }
 
+static gchar *
+icon_path_from_filename (const gchar *filename, const gchar *origin)
+{
+	g_autofree gchar *dir = NULL;
+	g_autofree gchar *topdir = NULL;
+
+	if (filename == NULL)
+		return NULL;
+
+	/* guess the icon path after we've read the origin and then look for
+	 * ../icons/$origin if the topdir is 'xmls', falling back to ./icons */
+	dir = g_path_get_dirname (filename);
+	topdir = g_path_get_basename (dir);
+	if ((g_strcmp0 (topdir, "xmls") == 0 ||
+	     g_strcmp0 (topdir, "yaml") == 0)
+	    && origin != NULL) {
+		g_autofree gchar *dirname = NULL;
+		dirname = g_path_get_dirname (dir);
+		return g_build_filename (dirname,
+					 "icons",
+					 origin,
+					 NULL);
+	} else {
+		return g_build_filename (dir, "icons", NULL);
+	}
+
+	return NULL;
+}
+
 static gboolean
 as_store_from_root (AsStore *store,
 		    AsNode *root,
@@ -1731,9 +1760,12 @@ as_store_from_root (AsStore *store,
 			 origin_app, priv->origin);
 	}
 
+	if (priv->origin != NULL && source_filename != NULL) {
+		icon_path = icon_path_from_filename (source_filename, priv->origin);
+	}
 	/* guess the icon path after we've read the origin and then look for
 	 * ../icons/$origin if the topdir is 'xmls', falling back to ./icons */
-	if (icon_prefix != NULL) {
+	if (icon_path == NULL && icon_prefix != NULL) {
 		g_autofree gchar *topdir = NULL;
 		topdir = g_path_get_basename (icon_prefix);
 		if ((g_strcmp0 (topdir, "xmls") == 0 ||
@@ -1878,14 +1910,7 @@ load_yaml (AsStore *store,
 
 	/* if we have an origin either from the YAML or _set_origin() */
 	if (priv->origin != NULL && source_filename != NULL) {
-		g_autofree gchar *icon_prefix1 = NULL;
-		g_autofree gchar *icon_prefix2 = NULL;
-		icon_prefix1 = g_path_get_dirname (source_filename);
-		icon_prefix2 = g_path_get_dirname (icon_prefix1);
-		icon_path = g_build_filename (icon_prefix2,
-					      "icons",
-					      priv->origin,
-					      NULL);
+		icon_path = icon_path_from_filename (source_filename, priv->origin);
 	}
 
 	/* emit once when finished */
@@ -2178,7 +2203,6 @@ as_store_from_file_internal (AsStore *store,
 	AsStorePrivate *priv = GET_PRIVATE (store);
 	guint32 flags = AS_NODE_FROM_XML_FLAG_LITERAL_TEXT;
 	g_autofree gchar *filename = NULL;
-	g_autofree gchar *icon_prefix = NULL;
 	g_autoptr(GError) error_local = NULL;
 	g_autoptr(AsNode) root = NULL;
 	g_autoptr(AsProfileTask) ptask = NULL;
@@ -2232,9 +2256,8 @@ as_store_from_file_internal (AsStore *store,
 	}
 
 	/* icon prefix is the directory the XML has been found in */
-	icon_prefix = g_path_get_dirname (filename);
 	return as_store_from_root (store, root, scope,
-				   icon_prefix, filename, arch, load_flags,
+				   NULL, filename, arch, load_flags,
 				   error);
 }
 
