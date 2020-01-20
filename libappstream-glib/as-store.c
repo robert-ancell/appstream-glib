@@ -1981,6 +1981,7 @@ as_store_load_yaml_file (AsStore *store,
 static gboolean
 as_store_load_yaml_data (AsStore *store,
 			 GBytes *data,
+			 const gchar *source_filename,
 			 AsAppScope scope,
 			 GCancellable *cancellable,
 			 GError **error)
@@ -1996,7 +1997,7 @@ as_store_load_yaml_data (AsStore *store,
 	if (root == NULL)
 		return FALSE;
 
-	return load_yaml (store, root, NULL, scope, cancellable, error);
+	return load_yaml (store, root, source_filename, scope, cancellable, error);
 }
 
 static void
@@ -2322,6 +2323,31 @@ as_store_from_bytes (AsStore *store,
 		     GCancellable *cancellable,
 		     GError **error)
 {
+	return as_store_from_bytes_with_filename (store, bytes, NULL, cancellable, error);
+}
+
+/**
+ * as_store_from_bytes_with_filename:
+ * @store: a #AsStore instance.
+ * @bytes: a #GBytes.
+ * @source_filename: (allow-none): the filename the appstream data came from or %NULL.
+ * @cancellable: a #GCancellable.
+ * @error: A #GError or %NULL.
+ *
+ * Parses an appstream store presented as an archive. This is typically
+ * a .cab file containing firmware files.
+ *
+ * Returns: %TRUE for success
+ *
+ * Since: 0.7.17
+ **/
+gboolean
+as_store_from_bytes_with_filename (AsStore *store,
+				   GBytes *bytes,
+				   const gchar *source_filename,
+				   GCancellable *cancellable,
+				   GError **error)
+{
 	g_autofree gchar *content_type = NULL;
 	gconstpointer data;
 	gsize size;
@@ -2333,12 +2359,12 @@ as_store_from_bytes (AsStore *store,
 	/* is an AppStream file */
 	if (g_strcmp0 (content_type, "application/xml") == 0) {
 		g_autofree gchar *tmp = g_strndup (data, size);
-		return as_store_from_xml (store, tmp, NULL, error);
+		return as_store_from_xml_with_filename (store, tmp, source_filename, error);
 	}
 
 	/* is a DEP-11 file */
 	if (g_strcmp0 (content_type, "text/plain") == 0 && is_dep11_data (bytes))
-		return as_store_load_yaml_data (store, bytes, AS_APP_SCOPE_UNKNOWN, cancellable, error);
+		return as_store_load_yaml_data (store, bytes, source_filename, AS_APP_SCOPE_UNKNOWN, cancellable, error);
 
 	/* is firmware */
 	if (g_strcmp0 (content_type, "application/vnd.ms-cab-compressed") == 0) {
@@ -2405,6 +2431,63 @@ as_store_from_xml (AsStore *store,
 				   AS_APP_SCOPE_UNKNOWN,
 				   icon_root,
 				   NULL, /* filename */
+				   NULL, /* arch */
+				   AS_STORE_LOAD_FLAG_NONE,
+				   error);
+}
+
+/**
+ * as_store_from_xml_with_filename:
+ * @store: a #AsStore instance.
+ * @data: XML data
+ * @source_filename: (allow-none): the filename the appstream data came from or %NULL.
+ * @error: A #GError or %NULL.
+ *
+ * Parses AppStream XML file and adds any valid applications to the store.
+ *
+ * If the root node does not have a 'origin' attribute, then the method
+ * as_store_set_origin() should be called *before* this function if cached
+ * icons are required.
+ *
+ * Returns: %TRUE for success
+ *
+ * Since: 0.7.17
+ **/
+gboolean
+as_store_from_xml_with_filename (AsStore *store,
+				 const gchar *data,
+				 const gchar *source_filename,
+				 GError **error)
+{
+	AsStorePrivate *priv = GET_PRIVATE (store);
+	guint32 flags = AS_NODE_FROM_XML_FLAG_LITERAL_TEXT;
+	g_autoptr(GError) error_local = NULL;
+	g_autoptr(AsNode) root = NULL;
+
+	g_return_val_if_fail (AS_IS_STORE (store), FALSE);
+	g_return_val_if_fail (data != NULL, FALSE);
+
+	/* ignore empty file */
+	if (data[0] == '\0')
+		return TRUE;
+
+	/* load XML data */
+	if (priv->add_flags & AS_STORE_ADD_FLAG_ONLY_NATIVE_LANGS)
+		flags |= AS_NODE_FROM_XML_FLAG_ONLY_NATIVE_LANGS;
+	root = as_node_from_xml (data, flags, &error_local);
+	if (root == NULL) {
+		g_set_error (error,
+			     AS_STORE_ERROR,
+			     AS_STORE_ERROR_FAILED,
+			     "Failed to parse XML: %s",
+			     error_local->message);
+		return FALSE;
+	}
+
+	return as_store_from_root (store, root,
+				   AS_APP_SCOPE_UNKNOWN,
+				   NULL,
+				   source_filename,
 				   NULL, /* arch */
 				   AS_STORE_LOAD_FLAG_NONE,
 				   error);

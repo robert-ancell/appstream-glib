@@ -157,9 +157,19 @@ gboolean	 as_store_from_bytes		(AsStore	*store,
 						 GBytes		*bytes,
 						 GCancellable	*cancellable,
 						 GError		**error);
+gboolean	 as_store_from_bytes_with_filename (AsStore	*store,
+						 GBytes		*bytes,
+						 const gchar    *source_filename,
+						 GCancellable	*cancellable,
+						 GError		**error);
 gboolean	 as_store_from_xml		(AsStore	*store,
 						 const gchar	*data,
 						 const gchar	*icon_root,
+						 GError		**error);
+
+gboolean	 as_store_from_xml_with_filename (AsStore	*store,
+						 const gchar	*data,
+						 const gchar	*source_filename,
 						 GError		**error);
 
 gboolean	 as_store_load			(AsStore	*store,
