@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: LGPL-2.1+
  */
 
+#include <fnmatch.h>
 #include <string.h>
 
 #include "as-app-private.h"

@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <fnmatch.h>
 #include <string.h>
 
 #include "as-app-builder.h"

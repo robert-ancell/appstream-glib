@@ -6,16 +6,12 @@ cargs = [
 
 deps = [
   gdkpixbuf,
+  giounix,
   glib,
   libarchive,
   soup,
+  uuid,
 ]
-
-if platform_win32
-  deps += [giowindows]
-else
-  deps += [giounix, uuid]
-endif
 
 if get_option('dep11')
   deps += yaml
@@ -146,14 +142,6 @@ asglib = shared_library(
 )
 asglib_incdir = include_directories('.')
 
-pkg_req_private = [
-  'libarchive'
-]
-
-if not platform_win32
-  pkg_req_private += ['uuid']
-endif
-
 pkgg.generate(
   version : as_version,
   libraries : asglib,
@@ -162,7 +150,10 @@ pkgg.generate(
     'gobject-2.0',
     'gdk-pixbuf-2.0',
   ],
-  requires_private : pkg_req_private,
+  requires_private : [
+    'libarchive',
+    'uuid',
+  ],
   name : 'appstream-glib',
   description : 'Objects and helper methods to help reading and writing AppStream metadata',
   filebase : 'appstream-glib',

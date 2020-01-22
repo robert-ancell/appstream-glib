@@ -11,6 +11,7 @@
 #include <glib/gstdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fnmatch.h>
 
 #include "as-agreement-private.h"
 #include "as-app-private.h"
@@ -39,12 +40,6 @@
 #include "as-utils-private.h"
 #include "as-yaml.h"
 
-#ifndef _WIN32
-#include <fnmatch.h>
-#else
-#include <windef.h>
-#endif
-
 #define AS_TEST_WILDCARD_SHA1	"\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?\?"
 
 static gboolean
@@ -57,13 +52,8 @@ as_test_compare_lines (const gchar *txt1, const gchar *txt2, GError **error)
 		return TRUE;
 
 	/* matches a pattern */
-#ifdef _WIN32
-	if (g_strcmp0 (txt2, txt1) == 0)
-		return TRUE;
-#else
 	if (fnmatch (txt2, txt1, FNM_NOESCAPE) == 0)
 		return TRUE;
-#endif
 
 	/* save temp files and diff them */
 	if (!g_file_set_contents ("/tmp/a", txt1, -1, error))
@@ -90,21 +80,7 @@ as_test_get_filename (const gchar *filename)
 		g_free (path);
 		path = g_build_filename (TESTDIRBUILD, filename, NULL);
 	}
-#ifdef _WIN32
-	{
-		DWORD retval;
-		TCHAR full_path[PATH_MAX];
-
-		retval = GetFullPathNameA (path, PATH_MAX, full_path, NULL);
-
-		if (retval > 0)
-			return g_strdup (full_path);
-		else
-			return NULL;
-	}
-#else
 	return realpath (path, NULL);
-#endif
 }
 
 static GMainLoop *_test_loop = NULL;
@@ -2363,24 +2339,14 @@ as_test_store_local_appdata_func (void)
 	gboolean ret;
 	g_autofree gchar *filename = NULL;
 	g_autofree gchar *filename_full = NULL;
-	g_autofree gchar *canonical_filename;
 	g_autoptr(AsStore) store = NULL;
 
 	/* this are the warnings expected */
-#ifdef _WIN32
-	g_test_expect_message (G_LOG_DOMAIN,
-			       G_LOG_LEVEL_WARNING,
-			       "ignoring description '*' from *\\broken.appdata.xml: Unknown tag '_p'");
-#else
 	g_test_expect_message (G_LOG_DOMAIN,
 			       G_LOG_LEVEL_WARNING,
 			       "ignoring description '*' from */broken.appdata.xml: Unknown tag '_p'");
-#endif
 
 	/* open test store */
-#ifdef _WIN32
-	g_setenv ("XDG_DATA_DIRS", "/usr/share/", TRUE);
-#endif
 	store = as_store_new ();
 	filename = as_test_get_filename (".");
 	as_store_set_destdir (store, filename);
@@ -2400,8 +2366,7 @@ as_test_store_local_appdata_func (void)
 	filename_full = g_build_filename (filename,
 					  "usr/share/appdata/broken.appdata.xml",
 					  NULL);
-	canonical_filename = g_canonicalize_filename (filename_full, NULL);
-	g_assert_cmpstr (as_format_get_filename (format), ==, canonical_filename);
+	g_assert_cmpstr (as_format_get_filename (format), ==, filename_full);
 }
 
 static void
@@ -4320,7 +4285,6 @@ as_test_utils_appstream_id_func (void)
 static void
 as_test_utils_guid_func (void)
 {
-#ifndef _WIN32
 	g_autofree gchar *guid1 = NULL;
 	g_autofree gchar *guid2 = NULL;
 
@@ -4339,7 +4303,6 @@ as_test_utils_guid_func (void)
 	g_assert_cmpstr (guid1, ==, "886313e1-3b8a-5372-9b90-0c9aee199e5d");
 	guid2 = as_utils_guid_from_string ("8086:0406");
 	g_assert_cmpstr (guid2, ==, "1fbd1f2c-80f4-5d7c-a6ad-35c7b9bd5486");
-#endif
 }
 
 static void
