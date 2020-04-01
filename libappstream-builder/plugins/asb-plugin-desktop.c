@@ -24,6 +24,7 @@ asb_plugin_get_name (void)
 void
 asb_plugin_add_globs (AsbPlugin *plugin, GPtrArray *globs)
 {
+	asb_plugin_add_glob (globs, "/var/lib/snapd/hostfs/usr/share/applications/*.desktop");
 	asb_plugin_add_glob (globs, "/usr/share/applications/*.desktop");
 	asb_plugin_add_glob (globs, "/usr/share/applications/kde4/*.desktop");
 }
@@ -70,6 +71,7 @@ asb_plugin_process_app (AsbPlugin *plugin,
 	guint i;
 	g_autoptr(GString) desktop_basename = NULL;
 	const gchar *app_dirs[] = {
+		"/var/lib/snapd/hostfs/usr/share/applications",
 		"/usr/share/applications",
 		"/usr/share/applications/kde4",
 		NULL };
