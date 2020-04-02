@@ -76,6 +76,8 @@ asb_plugin_process_app (AsbPlugin *plugin,
 		"/usr/share/applications/kde4",
 		NULL };
 
+   g_printerr ("asb_plugin_process_app\n");
+
 	/* get the (optional) launchable to get the name of the desktop file */
 	launchable = as_app_get_launchable_by_kind (AS_APP (app), AS_LAUNCHABLE_KIND_DESKTOP_ID);
 	if (launchable != NULL) {
